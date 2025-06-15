@@ -1,25 +1,28 @@
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Mail, Chrome } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
-import { signInWithGoogle } from '../lib/supabase'
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Mail, Chrome } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
+  const { user, loading, signInWithGoogle } = useAuth(); // Use signInWithGoogle from context
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (user) {
-      navigate('/app')
+    if (!loading && user) {
+      navigate("/app");
     }
-  }, [user, navigate])
+  }, [user, loading, navigate]);
 
   const handleGoogleSignIn = async () => {
     try {
-      await signInWithGoogle()
+      await signInWithGoogle();
     } catch (error) {
-      console.error('Error signing in:', error.message)
+      console.error("Error signing in:", error.message);
     }
+  };
+
+  if (loading) {
+    return <div>Loading...</div>;
   }
 
   return (
@@ -53,8 +56,8 @@ export default function Login() {
         </div>
 
         <div className="text-center mt-6">
-          <button 
-            onClick={() => navigate('/')}
+          <button
+            onClick={() => navigate("/")}
             className="text-blue-600 hover:text-blue-700 font-medium"
           >
             ← Back to Home
@@ -62,5 +65,5 @@ export default function Login() {
         </div>
       </div>
     </div>
-  )
+  );
 }
