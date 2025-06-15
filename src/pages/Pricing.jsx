@@ -18,7 +18,7 @@ export default function Pricing() {
 
     setLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stripe/checkout`, {
+      const response = await fetch(`${API_BASE_URL}/api/lemonsqueezy/webhook`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
