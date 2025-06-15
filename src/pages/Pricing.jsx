@@ -18,7 +18,7 @@ export default function Pricing() {
 
     setLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lemonsqueezy/webhook`, {
+      const response = await fetch(`${API_BASE_URL}/api/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -30,11 +30,15 @@ export default function Pricing() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to create checkout session')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create checkout session')
       }
 
       const { url } = await response.json()
+      
+      // Redirect to LemonSqueezy checkout
       window.location.href = url
+      
     } catch (error) {
       console.error('Error creating checkout session:', error)
       alert('Something went wrong. Please try again.')
