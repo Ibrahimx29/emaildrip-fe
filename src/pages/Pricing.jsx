@@ -1,58 +1,81 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Mail, Check, Crown, Zap, ArrowLeft } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Mail, Check, Crown, Zap, ArrowLeft } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 export default function Pricing() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
   const handleUpgrade = async () => {
     if (!user) {
-      navigate('/login')
-      return
+      navigate("/login");
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
     try {
+      console.log("Creating checkout session..."); // Debug log
+
       const response = await fetch(`${API_BASE_URL}/api/checkout`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           user_id: user.id,
-          email: user.email
-        })
-      })
+          email: user.email,
+        }),
+      });
+
+      console.log("Response status:", response.status); // Debug log
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to create checkout session')
+        const errorText = await response.text();
+        console.error("API Error Response:", errorText); // Debug log
+
+        let errorMessage = "Failed to create checkout session";
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          errorMessage = errorText || errorMessage;
+        }
+
+        throw new Error(errorMessage);
       }
 
-      const { url } = await response.json()
-      
+      const responseData = await response.json();
+      console.log("Checkout response:", responseData); // Debug log
+
+      const { url } = responseData;
+
+      if (!url) {
+        throw new Error("No checkout URL received");
+      }
+
+      console.log("Redirecting to:", url); // Debug log
+
       // Redirect to LemonSqueezy checkout
-      window.location.href = url
-      
+      window.location.href = url;
     } catch (error) {
-      console.error('Error creating checkout session:', error)
-      alert('Something went wrong. Please try again.')
+      console.error("Error creating checkout session:", error);
+      alert(`Something went wrong: ${error.message}`);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
       <header className="px-4 lg:px-6 h-16 flex items-center border-b bg-white/80 backdrop-blur">
-        <button 
-          onClick={() => navigate('/')}
+        <button
+          onClick={() => navigate("/")}
           className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -86,9 +109,13 @@ export default function Pricing() {
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Free</h3>
                 <div className="text-4xl font-bold text-gray-900 mb-2">
                   $0
-                  <span className="text-lg font-normal text-gray-600">/month</span>
+                  <span className="text-lg font-normal text-gray-600">
+                    /month
+                  </span>
                 </div>
-                <p className="text-gray-600">Perfect for trying out the magic</p>
+                <p className="text-gray-600">
+                  Perfect for trying out the magic
+                </p>
               </div>
 
               <ul className="space-y-4 mb-8">
@@ -111,7 +138,7 @@ export default function Pricing() {
               </ul>
 
               <button
-                onClick={() => navigate('/app')}
+                onClick={() => navigate("/app")}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-colors"
               >
                 Get Started Free
@@ -133,7 +160,9 @@ export default function Pricing() {
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Pro</h3>
                 <div className="text-4xl font-bold text-gray-900 mb-2">
                   $10
-                  <span className="text-lg font-normal text-gray-600">/month</span>
+                  <span className="text-lg font-normal text-gray-600">
+                    /month
+                  </span>
                 </div>
                 <p className="text-gray-600">For email power users</p>
               </div>
@@ -141,7 +170,9 @@ export default function Pricing() {
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center gap-3">
                   <Check className="w-5 h-5 text-green-500" />
-                  <span className="font-semibold">Unlimited email rewrites</span>
+                  <span className="font-semibold">
+                    Unlimited email rewrites
+                  </span>
                 </li>
                 <li className="flex items-center gap-3">
                   <Check className="w-5 h-5 text-green-500" />
@@ -187,24 +218,36 @@ export default function Pricing() {
 
           {/* FAQ */}
           <div className="mt-20">
-            <h2 className="text-3xl font-bold text-center mb-12">Frequently Asked Questions</h2>
+            <h2 className="text-3xl font-bold text-center mb-12">
+              Frequently Asked Questions
+            </h2>
             <div className="max-w-2xl mx-auto space-y-8">
               <div>
-                <h3 className="text-xl font-semibold mb-3">Can I cancel anytime?</h3>
+                <h3 className="text-xl font-semibold mb-3">
+                  Can I cancel anytime?
+                </h3>
                 <p className="text-gray-600">
-                  Yes! You can cancel your Pro subscription at any time. You'll keep access until the end of your billing period.
+                  Yes! You can cancel your Pro subscription at any time. You'll
+                  keep access until the end of your billing period.
                 </p>
               </div>
               <div>
-                <h3 className="text-xl font-semibold mb-3">What happens after my free emails run out?</h3>
+                <h3 className="text-xl font-semibold mb-3">
+                  What happens after my free emails run out?
+                </h3>
                 <p className="text-gray-600">
-                  Free users get 5 emails per day. After that, you'll need to upgrade to Pro or wait until tomorrow for your quota to reset.
+                  Free users get 5 emails per day. After that, you'll need to
+                  upgrade to Pro or wait until tomorrow for your quota to reset.
                 </p>
               </div>
               <div>
-                <h3 className="text-xl font-semibold mb-3">Is my email data safe?</h3>
+                <h3 className="text-xl font-semibold mb-3">
+                  Is my email data safe?
+                </h3>
                 <p className="text-gray-600">
-                  Absolutely. We use industry-standard encryption and never store your email content longer than necessary to provide the service.
+                  Absolutely. We use industry-standard encryption and never
+                  store your email content longer than necessary to provide the
+                  service.
                 </p>
               </div>
             </div>
@@ -212,5 +255,5 @@ export default function Pricing() {
         </div>
       </section>
     </div>
-  )
+  );
 }
