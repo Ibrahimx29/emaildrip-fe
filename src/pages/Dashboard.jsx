@@ -497,7 +497,7 @@ export default function Dashboard() {
               </div>
 
               {/* Pagination */}
-              {totalPages > 1 && (
+              {emails.length > emailsPerPage && (
                 <div className="px-6 py-4 border-t border-gray-200">
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-gray-700">
