@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, ArrowLeft, Calendar, Crown, BarChart3, FileText, Trash2, Download, ChevronDown, ChevronUp, Copy, Check, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Mail, ArrowLeft, Calendar, Crown, Zap, BarChart3, FileText, Trash2, Download, ChevronDown, ChevronUp, Copy, Check, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getUserEmails, getUserUsage, checkUserIsPro } from '../lib/supabase'
 
@@ -231,9 +231,10 @@ export default function Dashboard() {
                     Pro
                   </div>
                 ) : (
-                  <span className="text-gray-600">
-                    {usage}/{FREE_LIMIT} free emails today
-                  </span>
+                  <div className="flex items-center gap-1 bg-gray-100 text-gray-800 px-3 py-1 rounded-full">
+                    <Zap className="w-4 h-4" />
+                    Free
+                  </div>
                 )}
               </div>
               
