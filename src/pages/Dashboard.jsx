@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, ArrowLeft, Calendar, Crown, BarChart3, FileText, Trash2 } from 'lucide-react'
+import { Mail, ArrowLeft, Calendar, Crown, BarChart3, FileText, Trash2, Download, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getUserEmails, getUserUsage, checkUserIsPro } from '../lib/supabase'
 
@@ -12,6 +12,9 @@ export default function Dashboard() {
   const [usage, setUsage] = useState(0)
   const [isPro, setIsPro] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [isExporting, setIsExporting] = useState(false)
+  const [expandedEmails, setExpandedEmails] = useState(new Set())
+  const [copiedText, setCopiedText] = useState('')
 
   useEffect(() => {
     if (!user) {
@@ -49,9 +52,124 @@ export default function Dashboard() {
     })
   }
 
+  const formatDateForExport = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
+  }
+
   const truncateText = (text, maxLength = 100) => {
     if (text.length <= maxLength) return text
     return text.substring(0, maxLength) + '...'
+  }
+
+  const toggleEmailExpansion = (emailId) => {
+    const newExpanded = new Set(expandedEmails)
+    if (newExpanded.has(emailId)) {
+      newExpanded.delete(emailId)
+    } else {
+      newExpanded.add(emailId)
+    }
+    setExpandedEmails(newExpanded)
+  }
+
+  const copyToClipboard = async (text, type) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedText(type)
+      setTimeout(() => setCopiedText(''), 2000)
+    } catch (error) {
+      console.error('Failed to copy text:', error)
+    }
+  }
+
+  const exportEmails = async (format = 'json') => {
+    if (!isPro) {
+      alert('Export feature is only available for Pro users')
+      return
+    }
+
+    setIsExporting(true)
+    
+    try {
+      let content = ''
+      let filename = ''
+      let mimeType = ''
+
+      if (format === 'json') {
+        const exportData = {
+          exportDate: new Date().toISOString(),
+          totalEmails: emails.length,
+          emails: emails.map(email => ({
+            id: email.id,
+            createdAt: email.created_at,
+            original: email.original,
+            rewritten: email.rewritten,
+            roast: email.roast || null
+          }))
+        }
+        content = JSON.stringify(exportData, null, 2)
+        filename = `emails-export-${new Date().toISOString().split('T')[0]}.json`
+        mimeType = 'application/json'
+      } else if (format === 'csv') {
+        const headers = ['Date Created', 'Original Email', 'Rewritten Email', 'Roast']
+        const csvRows = [headers.join(',')]
+        
+        emails.forEach(email => {
+          const row = [
+            `"${formatDateForExport(email.created_at)}"`,
+            `"${email.original.replace(/"/g, '""')}"`,
+            `"${email.rewritten.replace(/"/g, '""')}"`,
+            `"${email.roast ? email.roast.replace(/"/g, '""') : 'N/A'}"`
+          ]
+          csvRows.push(row.join(','))
+        })
+        
+        content = csvRows.join('\n')
+        filename = `emails-export-${new Date().toISOString().split('T')[0]}.csv`
+        mimeType = 'text/csv'
+      } else if (format === 'txt') {
+        content = `Email Export - ${new Date().toLocaleDateString()}\n`
+        content += `Total Emails: ${emails.length}\n`
+        content += '=' * 50 + '\n\n'
+        
+        emails.forEach((email, index) => {
+          content += `Email #${index + 1}\n`
+          content += `Date: ${formatDateForExport(email.created_at)}\n`
+          content += `\nOriginal:\n${email.original}\n`
+          content += `\nRewritten:\n${email.rewritten}\n`
+          if (email.roast) {
+            content += `\nRoast:\n${email.roast}\n`
+          }
+          content += '\n' + '-' * 50 + '\n\n'
+        })
+        
+        filename = `emails-export-${new Date().toISOString().split('T')[0]}.txt`
+        mimeType = 'text/plain'
+      }
+
+      // Create and download file
+      const blob = new Blob([content], { type: mimeType })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+    } catch (error) {
+      console.error('Error exporting emails:', error)
+      alert('Failed to export emails. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   if (loading) {
@@ -149,12 +267,54 @@ export default function Dashboard() {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Recent Emails</h2>
-              <button 
-                onClick={() => navigate('/app')}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Write New Email
-              </button>
+              <div className="flex items-center gap-3">
+                {/* Export Dropdown for Pro Users */}
+                {isPro && emails.length > 0 && (
+                  <div className="relative group">
+                    <button 
+                      className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isExporting}
+                    >
+                      <Download className="w-4 h-4" />
+                      {isExporting ? 'Exporting...' : 'Export'}
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                      <div className="py-2">
+                        <button
+                          onClick={() => exportEmails('json')}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          disabled={isExporting}
+                        >
+                          Export as JSON
+                        </button>
+                        <button
+                          onClick={() => exportEmails('csv')}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          disabled={isExporting}
+                        >
+                          Export as CSV
+                        </button>
+                        <button
+                          onClick={() => exportEmails('txt')}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          disabled={isExporting}
+                        >
+                          Export as Text
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <button 
+                  onClick={() => navigate('/app')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Write New Email
+                </button>
+              </div>
             </div>
           </div>
 
@@ -174,49 +334,125 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
-              {emails.map((email) => (
-                <div key={email.id} className="p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-500">
-                          {formatDate(email.created_at)}
-                        </span>
-                      </div>
-                      
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-2">Original</h4>
-                          <p className="text-sm text-gray-600 bg-red-50 p-3 rounded-lg">
-                            {truncateText(email.original)}
-                          </p>
+              {emails.map((email) => {
+                const isExpanded = expandedEmails.has(email.id)
+                return (
+                  <div key={email.id} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-gray-400" />
+                            <span className="text-sm text-gray-500">
+                              {formatDate(email.created_at)}
+                            </span>
+                          </div>
+                          
+                          <button
+                            onClick={() => toggleEmailExpansion(email.id)}
+                            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <span>Show Less</span>
+                                <ChevronUp className="w-4 h-4" />
+                              </>
+                            ) : (
+                              <>
+                                <span>Show More</span>
+                                <ChevronDown className="w-4 h-4" />
+                              </>
+                            )}
+                          </button>
                         </div>
                         
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-2">Rewritten</h4>
-                          <p className="text-sm text-gray-600 bg-green-50 p-3 rounded-lg">
-                            {truncateText(email.rewritten)}
-                          </p>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium text-gray-900">Original</h4>
+                              <button
+                                onClick={() => copyToClipboard(email.original, `original-${email.id}`)}
+                                className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-xs transition-colors"
+                              >
+                                {copiedText === `original-${email.id}` ? (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    <span>Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                            <p className="text-sm text-gray-600 bg-red-50 p-3 rounded-lg whitespace-pre-wrap">
+                              {isExpanded ? email.original : truncateText(email.original)}
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium text-gray-900">Rewritten</h4>
+                              <button
+                                onClick={() => copyToClipboard(email.rewritten, `rewritten-${email.id}`)}
+                                className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-xs transition-colors"
+                              >
+                                {copiedText === `rewritten-${email.id}` ? (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    <span>Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                            <p className="text-sm text-gray-600 bg-green-50 p-3 rounded-lg whitespace-pre-wrap">
+                              {isExpanded ? email.rewritten : truncateText(email.rewritten)}
+                            </p>
+                          </div>
                         </div>
-                      </div>
 
-                      {email.roast && (
-                        <div className="mt-4">
-                          <h4 className="font-medium text-red-600 mb-2">🔥 Roast</h4>
-                          <p className="text-sm text-gray-600 bg-red-50 p-3 rounded-lg">
-                            {truncateText(email.roast)}
-                          </p>
-                        </div>
-                      )}
+                        {email.roast && (
+                          <div className="mt-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium text-red-600">🔥 Roast</h4>
+                              <button
+                                onClick={() => copyToClipboard(email.roast, `roast-${email.id}`)}
+                                className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-xs transition-colors"
+                              >
+                                {copiedText === `roast-${email.id}` ? (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    <span>Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                            <p className="text-sm text-gray-600 bg-red-50 p-3 rounded-lg whitespace-pre-wrap">
+                              {isExpanded ? email.roast : truncateText(email.roast)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <button className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors ml-4">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    
-                    <button className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -227,7 +463,7 @@ export default function Dashboard() {
             <Crown className="w-16 h-16 mx-auto mb-4 opacity-80" />
             <h3 className="text-2xl font-bold mb-2">Ready to Go Pro?</h3>
             <p className="text-blue-100 mb-6">
-              Unlimited emails, advanced features, and priority support
+              Unlimited emails, advanced features, export functionality, and priority support
             </p>
             <button 
               onClick={() => navigate('/pricing')}
